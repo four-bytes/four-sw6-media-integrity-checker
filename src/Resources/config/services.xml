@@ -6,6 +6,10 @@
     <services>
         <defaults autowire="true" autoconfigure="true" public="false"/>
 
+        <service id="monolog.logger.four_media_integrity" parent="monolog.logger">
+            <argument index="0">four_media_integrity</argument>
+        </service>
+
         <!-- Core Service -->
         <service id="Four\MediaIntegrityChecker\Service\MediaIntegrityChecker">
             <argument key="$mediaRepository" type="service" id="media.repository"/>
