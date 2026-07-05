@@ -18,20 +18,18 @@ class FourMediaIntegrityChecker extends Plugin
     {
         parent::build($container);
 
-        $locator = new FileLocator('Resources/config');
+        $confDir = \rtrim($this->getPath(), '/') . '/Resources/config';
 
-        $xmlLoader = new XmlFileLoader($container, $locator);
-        $xmlLoader->load('services.xml');
+        $locator = new FileLocator($confDir);
 
         $resolver = new LoaderResolver([
             new YamlFileLoader($container, $locator),
+            new XmlFileLoader($container, $locator),
             new GlobFileLoader($container, $locator),
             new DirectoryLoader($container, $locator),
         ]);
 
         $configLoader = new DelegatingLoader($resolver);
-
-        $confDir = \rtrim($this->getPath(), '/') . '/Resources/config';
 
         $configLoader->load($confDir . '/{packages}/*.yaml', 'glob');
     }
