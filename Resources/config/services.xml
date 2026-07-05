@@ -4,30 +4,26 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
+        <defaults autowire="true" autoconfigure="true" public="false"/>
+
         <!-- Core Service -->
         <service id="Four\MediaIntegrityChecker\Service\MediaIntegrityChecker">
-            <argument type="service" id="media.repository"/>
-            <argument type="service" id="shopware.filesystem.public"/>
-            <argument type="service" id="monolog.logger.four_media_integrity"/>
+            <argument key="$mediaRepository" type="service" id="media.repository"/>
+            <argument key="$filesystem" type="service" id="shopware.filesystem.public"/>
+            <argument key="$logger" type="service" id="monolog.logger.four_media_integrity"/>
         </service>
 
-        <!-- CLI Command -->
-        <service id="Four\MediaIntegrityChecker\Command\MediaIntegrityCheckCommand">
-            <argument type="service" id="Four\MediaIntegrityChecker\Service\MediaIntegrityChecker"/>
-            <tag name="console.command"/>
-        </service>
+        <!-- CLI Command (autoconfigure handles console.command tag) -->
+        <service id="Four\MediaIntegrityChecker\Command\MediaIntegrityCheckCommand"/>
 
         <!-- Scheduled Task -->
         <service id="Four\MediaIntegrityChecker\ScheduledTask\MediaIntegrityCheckTask">
             <tag name="shopware.scheduled.task"/>
         </service>
 
-        <!-- Scheduled Task Handler -->
+        <!-- Scheduled Task Handler (autoconfigure handles messenger.message_handler via #[AsMessageHandler]) -->
         <service id="Four\MediaIntegrityChecker\ScheduledTask\MediaIntegrityCheckTaskHandler">
-            <argument type="service" id="scheduled_task.repository"/>
-            <argument type="service" id="monolog.logger.four_media_integrity"/>
-            <argument type="service" id="Four\MediaIntegrityChecker\Service\MediaIntegrityChecker"/>
-            <tag name="messenger.message_handler"/>
+            <argument key="$logger" type="service" id="monolog.logger.four_media_integrity"/>
         </service>
     </services>
 </container>
