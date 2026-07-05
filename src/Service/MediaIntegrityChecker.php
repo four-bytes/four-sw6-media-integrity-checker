@@ -54,6 +54,11 @@ class MediaIntegrityChecker
         $totalCount = $this->mediaRepository->searchIds($totalCriteria, $context)->getTotal();
         $result->totalCount = $totalCount;
 
+        if ($limit > 0) {
+            $totalCount = \min($totalCount, $limit);
+            $result->totalCount = $totalCount;
+        }
+
         $this->logger->info('Starting media integrity check', [
             'totalMedia' => $totalCount,
             'batchSize' => $batchSize,
@@ -153,6 +158,11 @@ class MediaIntegrityChecker
                 if ($limit > 0 && $checkedSoFar >= $limit) {
                     break 2;
                 }
+            }
+
+            // Stop if limit reached (outer loop guard)
+            if ($limit > 0 && $checkedSoFar >= $limit) {
+                break;
             }
 
             if ($progressCallback !== null) {
