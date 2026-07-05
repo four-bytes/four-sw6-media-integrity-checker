@@ -1,0 +1,9 @@
+monolog:
+  channels: ['four_media_integrity']
+  handlers:
+    fourMediaIntegrityHandler:
+      type: rotating_file
+      path: "%kernel.logs_dir%/four_media_integrity_%kernel.environment%.log"
+      level: info
+      max_files: 14
+      channels: ["four_media_integrity"]
