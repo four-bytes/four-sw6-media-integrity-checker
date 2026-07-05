@@ -19,6 +19,7 @@ class MediaIntegrityChecker
         private readonly EntityRepository $mediaRepository,
         private readonly FilesystemOperator $filesystem,
         private readonly LoggerInterface $logger,
+        private readonly EntityRepository $thumbnailRepository,
     ) {}
 
     /**
@@ -48,7 +49,6 @@ class MediaIntegrityChecker
         $context = Context::createCLIContext();
         $result = new MediaIntegrityResult();
 
-        // Get total media count for progress reporting
         $totalCriteria = new Criteria();
         $totalCriteria->setLimit(1);
         $totalCount = $this->mediaRepository->searchIds($totalCriteria, $context)->getTotal();
@@ -92,7 +92,6 @@ class MediaIntegrityChecker
                 $checkedSoFar++;
                 $result->checkedCount++;
 
-                // Skip media entries without actual file data
                 if (!$media->hasFile()) {
                     $result->skippedNoFile++;
                     continue;
@@ -104,20 +103,17 @@ class MediaIntegrityChecker
                     continue;
                 }
 
-                // Skip external URLs (e.g., CDN-hosted files that reference http URLs directly)
                 if (\str_starts_with($path, 'http://') || \str_starts_with($path, 'https://')) {
                     $result->skippedExternal++;
                     continue;
                 }
 
-                // Build the full filename including extension
                 $fileName = \sprintf(
                     '%s.%s',
                     $media->getFileName() ?? 'unknown',
                     $media->getFileExtension() ?? 'unknown',
                 );
 
-                // Check if the main media file exists on the filesystem
                 if (!$this->filesystem->fileExists($path)) {
                     $result->addMissingFile($media->getId(), $fileName, $path);
                     $this->logger->warning('Media file missing', [
@@ -127,7 +123,6 @@ class MediaIntegrityChecker
                     ]);
                 }
 
-                // Check thumbnails if enabled and available
                 if ($checkThumbnails) {
                     $thumbnails = $media->getThumbnails();
                     if ($thumbnails !== null && $thumbnails->count() > 0) {
@@ -143,9 +138,15 @@ class MediaIntegrityChecker
                                     $thumbnail->getWidth(),
                                     $thumbnail->getHeight(),
                                 );
-                                $result->addMissingThumbnail($media->getId(), $thumbSize, $thumbPath);
+                                $result->addMissingThumbnail(
+                                    $media->getId(),
+                                    $thumbnail->getId(),
+                                    $thumbSize,
+                                    $thumbPath,
+                                );
                                 $this->logger->warning('Media thumbnail missing', [
                                     'mediaId' => $media->getId(),
+                                    'thumbnailId' => $thumbnail->getId(),
                                     'thumbnailSize' => $thumbSize,
                                     'path' => $thumbPath,
                                 ]);
@@ -154,13 +155,11 @@ class MediaIntegrityChecker
                     }
                 }
 
-                // Stop if limit reached
                 if ($limit > 0 && $checkedSoFar >= $limit) {
                     break 2;
                 }
             }
 
-            // Stop if limit reached (outer loop guard)
             if ($limit > 0 && $checkedSoFar >= $limit) {
                 break;
             }
@@ -171,13 +170,92 @@ class MediaIntegrityChecker
 
             $offset += $batchSize;
 
-            // Break if we've fetched fewer than batch size (last page)
             if (\count($mediaIds->getIds()) < $batchSize) {
                 break;
             }
         }
 
         $this->logger->info('Media integrity check completed', $result->toArray());
+
+        return $result;
+    }
+
+    /**
+     * Run integrity check and automatically delete entities with missing files.
+     *
+     * - Missing main file → deletes the MediaEntity (file is unrecoverable)
+     * - Missing thumbnail file (main file exists) → deletes MediaThumbnailEntity (Shopware auto-regenerates)
+     *
+     * @param int $batchSize Number of media per batch
+     * @param bool $fixThumbnails Whether to delete missing thumbnail entities
+     * @param int $limit Max total media to check (0 = all)
+     * @param callable|null $progressCallback Called with (checkedCount, totalCount) after each batch
+     */
+    public function fix(
+        int $batchSize = self::DEFAULT_BATCH_SIZE,
+        bool $fixThumbnails = true,
+        int $limit = 0,
+        ?callable $progressCallback = null,
+    ): MediaIntegrityResult {
+        $result = $this->check($batchSize, true, $limit, $progressCallback);
+        $context = Context::createCLIContext();
+
+        $deletedMedia = 0;
+        $deletedThumbnails = 0;
+
+        if (\count($result->missingFiles) > 0) {
+            $this->logger->info('Fix mode: deleting media entities with missing files', [
+                'count' => \count($result->missingFiles),
+            ]);
+
+            $deleteIds = \array_map(
+                fn (array $missing): array => ['id' => $missing['mediaId']],
+                $result->missingFiles,
+            );
+
+            try {
+                $this->mediaRepository->delete($deleteIds, $context);
+                $deletedMedia = \count($deleteIds);
+                $this->logger->warning('Deleted media entities (files missing on filesystem)', [
+                    'count' => $deletedMedia,
+                ]);
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to delete media entities', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($fixThumbnails && \count($result->missingThumbnails) > 0) {
+            $this->logger->info('Fix mode: deleting thumbnail entities with missing files', [
+                'count' => \count($result->missingThumbnails),
+            ]);
+
+            $deleteIds = \array_map(
+                fn (array $missing): array => ['id' => $missing['thumbnailId']],
+                $result->missingThumbnails,
+            );
+
+            try {
+                $this->thumbnailRepository->delete($deleteIds, $context);
+                $deletedThumbnails = \count($deleteIds);
+                $this->logger->warning('Deleted thumbnail entities (files missing, will be regenerated on next access)', [
+                    'count' => $deletedThumbnails,
+                ]);
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to delete thumbnail entities', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $result->deletedMedia = $deletedMedia;
+        $result->deletedThumbnails = $deletedThumbnails;
+
+        $this->logger->info('Fix mode completed', [
+            'deletedMedia' => $deletedMedia,
+            'deletedThumbnails' => $deletedThumbnails,
+        ]);
 
         return $result;
     }

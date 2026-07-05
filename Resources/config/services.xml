@@ -11,6 +11,7 @@
             <argument key="$mediaRepository" type="service" id="media.repository"/>
             <argument key="$filesystem" type="service" id="shopware.filesystem.public"/>
             <argument key="$logger" type="service" id="monolog.logger.four_media_integrity"/>
+            <argument key="$thumbnailRepository" type="service" id="media_thumbnail.repository"/>
         </service>
 
         <!-- CLI Command (autoconfigure handles console.command tag) -->

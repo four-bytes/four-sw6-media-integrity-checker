@@ -8,11 +8,13 @@ class MediaIntegrityResult
     public int $checkedCount = 0;
     public int $skippedNoFile = 0;
     public int $skippedExternal = 0;
+    public int $deletedMedia = 0;
+    public int $deletedThumbnails = 0;
 
     /** @var array<int, array{mediaId: string, fileName: string, path: string}> */
     public array $missingFiles = [];
 
-    /** @var array<int, array{mediaId: string, thumbnailSize: string, path: string}> */
+    /** @var array<int, array{mediaId: string, thumbnailId: string, thumbnailSize: string, path: string}> */
     public array $missingThumbnails = [];
 
     public function addMissingFile(string $mediaId, string $fileName, string $path): void
@@ -24,10 +26,11 @@ class MediaIntegrityResult
         ];
     }
 
-    public function addMissingThumbnail(string $mediaId, string $thumbnailSize, string $path): void
+    public function addMissingThumbnail(string $mediaId, string $thumbnailId, string $thumbnailSize, string $path): void
     {
         $this->missingThumbnails[] = [
             'mediaId' => $mediaId,
+            'thumbnailId' => $thumbnailId,
             'thumbnailSize' => $thumbnailSize,
             'path' => $path,
         ];
@@ -43,6 +46,8 @@ class MediaIntegrityResult
             'skippedExternal' => $this->skippedExternal,
             'missingFiles' => \count($this->missingFiles),
             'missingThumbnails' => \count($this->missingThumbnails),
+            'deletedMedia' => $this->deletedMedia,
+            'deletedThumbnails' => $this->deletedThumbnails,
         ];
     }
 }
