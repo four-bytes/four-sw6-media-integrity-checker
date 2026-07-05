@@ -17,6 +17,9 @@
         <!-- CLI Command (autoconfigure handles console.command tag) -->
         <service id="Four\MediaIntegrityChecker\Command\MediaIntegrityCheckCommand"/>
 
+        <!-- Fix Command (autoconfigure handles console.command tag) -->
+        <service id="Four\MediaIntegrityChecker\Command\MediaIntegrityFixCommand"/>
+
         <!-- Scheduled Task -->
         <service id="Four\MediaIntegrityChecker\ScheduledTask\MediaIntegrityCheckTask">
             <tag name="shopware.scheduled.task"/>
