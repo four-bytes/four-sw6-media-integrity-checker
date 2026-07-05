@@ -100,6 +100,7 @@ class MediaIntegrityFixCommand extends Command
                 ['Missing thumbnails found', (string) \count($result->missingThumbnails)],
                 ['Media entities deleted', (string) $result->deletedMedia],
                 ['Thumbnail entities deleted', (string) $result->deletedThumbnails],
+                ['Skipped (still referenced)', (string) $result->skippedReferenced],
             ],
         );
 

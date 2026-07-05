@@ -122,6 +122,7 @@ class MediaIntegrityCheckCommand extends Command
         if ($fixMode) {
             $tableData[] = ['Deleted media entities', (string) $result->deletedMedia];
             $tableData[] = ['Deleted thumbnail entities', (string) $result->deletedThumbnails];
+            $tableData[] = ['Skipped (still referenced)', (string) $result->skippedReferenced];
         }
 
         $io->table(['Metric', 'Value'], $tableData);

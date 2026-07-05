@@ -201,60 +201,65 @@ class MediaIntegrityChecker
         $context = Context::createCLIContext();
 
         $deletedMedia = 0;
+        $skippedReferenced = 0;
         $deletedThumbnails = 0;
 
+        // Delete media entities individually — Shopware FK constraints protect referenced ones
         if (\count($result->missingFiles) > 0) {
             $this->logger->info('Fix mode: deleting media entities with missing files', [
                 'count' => \count($result->missingFiles),
             ]);
 
-            $deleteIds = \array_map(
-                fn (array $missing): array => ['id' => $missing['mediaId']],
-                $result->missingFiles,
-            );
-
-            try {
-                $this->mediaRepository->delete($deleteIds, $context);
-                $deletedMedia = \count($deleteIds);
-                $this->logger->warning('Deleted media entities (files missing on filesystem)', [
-                    'count' => $deletedMedia,
-                ]);
-            } catch (\Throwable $e) {
-                $this->logger->error('Failed to delete media entities', [
-                    'error' => $e->getMessage(),
-                ]);
+            foreach ($result->missingFiles as $missing) {
+                try {
+                    $this->mediaRepository->delete([['id' => $missing['mediaId']]], $context);
+                    $deletedMedia++;
+                    $this->logger->warning('Deleted media entity (file missing on filesystem)', [
+                        'mediaId' => $missing['mediaId'],
+                        'fileName' => $missing['fileName'],
+                    ]);
+                } catch (\Throwable $e) {
+                    $skippedReferenced++;
+                    $this->logger->info('Skipped media deletion — entity still referenced (FK constraint)', [
+                        'mediaId' => $missing['mediaId'],
+                        'fileName' => $missing['fileName'],
+                    ]);
+                }
             }
         }
 
+        // Delete thumbnail entities individually
         if ($fixThumbnails && \count($result->missingThumbnails) > 0) {
             $this->logger->info('Fix mode: deleting thumbnail entities with missing files', [
                 'count' => \count($result->missingThumbnails),
             ]);
 
-            $deleteIds = \array_map(
-                fn (array $missing): array => ['id' => $missing['thumbnailId']],
-                $result->missingThumbnails,
-            );
-
-            try {
-                $this->thumbnailRepository->delete($deleteIds, $context);
-                $deletedThumbnails = \count($deleteIds);
-                $this->logger->warning('Deleted thumbnail entities (files missing, will be regenerated on next access)', [
-                    'count' => $deletedThumbnails,
-                ]);
-            } catch (\Throwable $e) {
-                $this->logger->error('Failed to delete thumbnail entities', [
-                    'error' => $e->getMessage(),
-                ]);
+            foreach ($result->missingThumbnails as $missing) {
+                try {
+                    $this->thumbnailRepository->delete([['id' => $missing['thumbnailId']]], $context);
+                    $deletedThumbnails++;
+                    $this->logger->warning('Deleted thumbnail entity (will be regenerated on next access)', [
+                        'mediaId' => $missing['mediaId'],
+                        'thumbnailId' => $missing['thumbnailId'],
+                        'thumbnailSize' => $missing['thumbnailSize'],
+                    ]);
+                } catch (\Throwable $e) {
+                    $this->logger->info('Skipped thumbnail deletion — entity still referenced', [
+                        'thumbnailId' => $missing['thumbnailId'],
+                        'thumbnailSize' => $missing['thumbnailSize'],
+                    ]);
+                }
             }
         }
 
         $result->deletedMedia = $deletedMedia;
         $result->deletedThumbnails = $deletedThumbnails;
+        $result->skippedReferenced = $skippedReferenced;
 
         $this->logger->info('Fix mode completed', [
             'deletedMedia' => $deletedMedia,
             'deletedThumbnails' => $deletedThumbnails,
+            'skippedReferenced' => $skippedReferenced,
         ]);
 
         return $result;

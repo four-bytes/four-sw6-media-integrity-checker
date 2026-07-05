@@ -10,6 +10,7 @@ class MediaIntegrityResult
     public int $skippedExternal = 0;
     public int $deletedMedia = 0;
     public int $deletedThumbnails = 0;
+    public int $skippedReferenced = 0;
 
     /** @var array<int, array{mediaId: string, fileName: string, path: string}> */
     public array $missingFiles = [];
@@ -48,6 +49,7 @@ class MediaIntegrityResult
             'missingThumbnails' => \count($this->missingThumbnails),
             'deletedMedia' => $this->deletedMedia,
             'deletedThumbnails' => $this->deletedThumbnails,
+            'skippedReferenced' => $this->skippedReferenced,
         ];
     }
 }
