@@ -3,7 +3,7 @@
     "description": "Shopware 6 plugin to check media file integrity - detects missing files and thumbnails",
     "type": "shopware-platform-plugin",
     "license": "proprietary",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "authors": [
         {
             "name": "Four Flames GmbH & Co. KG",
